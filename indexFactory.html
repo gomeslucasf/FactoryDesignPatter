@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardiões Prudente</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { 
+      height: 200px; 
+    
+    }
+  </style>
+</head>
+<body>
+  <div id="form-container" class="container mt-5">
+  </div>
+  
+  <div class="container mt-5">
+    <h2>Mapa com Alfinete</h2>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bluebird/3.7.2/bluebird.min.js"></script>
+
+  <script>
+    
+
+
+    function LocationFactory(){
+
+      async function getLocationRequest(latitude, longitude) {
+        const url = `http://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&accept-language=pt-BR&zoom=18`;
+
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          const data = await response.json();
+
+          return data;
+        } catch (error) {
+          console.error('Error fetching location:', error);
+          throw error;
+        }
+      } 
+      function exibeEmTelaLocalizacao(data){
+        const formContainer = document.getElementById('form-container');
+          const formElement = document.getElementsByTagName('form')[0];
+          const street = document.createElement('p');
+          street.id = 'location-output';
+          street.innerHTML = `</br> Endereço: ${data.display_name} </br> latitude: ${data.lat} </br> longitude: ${data.lon}`;
+          formElement.appendChild(street);
+          formContainer.appendChild(formElement);
+      }
+     
+      return {
+        getLocationRequest,
+        exibeEmTelaLocalizacao
+        }
+    }
+  
+    function MapFactory(){
+      function initMap (latitude,longitude,zoom){
+        const map = L.map('map').setView([latitude, longitude],zoom);
+          // Adiciona camada de mapa do OpenStreetMap
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(map);
+          // Adiciona marcador na posição especificada
+          L.marker([latitude, longitude]).addTo(map)
+            .bindPopup('Você está aqui!')
+            .openPopup();
+            
+      }
+      
+      return {initMap}
+    }
+
+    function BrowserFactory(){
+      function getGeolocation(showPosition,showError) {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(showPosition, showError);
+        } else {
+          document.getElementById('location-output').textContent = 'O Navegador não suporta Geolocalização';
+        }
+      }
+
+      return{getGeolocation}
+    }
+
+    function FormularioFactory(){
+        async function getFormularioRequest() {
+        try {
+          const response = await fetch('http://localhost:3333/Formularios');
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('Falha ao se comunicar com a api!', error);
+          return [];
+        }
+      }
+        function createForm(form) {
+      const formContainer = document.getElementById('form-container');
+      const formElement = document.createElement('form');
+      formElement.className = 'mb-4';
+
+      const titleElement = document.createElement('h3');
+      titleElement.textContent = form.titulo;
+      formElement.appendChild(titleElement);
+
+      const descriptionElement = document.createElement('p');
+      descriptionElement.textContent = form.descricao;
+      formElement.appendChild(descriptionElement);
+
+      const campos = JSON.parse(form.campos);
+      campos.forEach(campo => {
+        const componentWrapper = document.createElement('div');
+        componentWrapper.className = 'mb-3';
+        componentWrapper.innerHTML = campo.Componente.trim(); 
+        if (componentWrapper.firstChild instanceof Node) {
+          formElement.appendChild(componentWrapper.firstChild);
+        }
+      });
+
+      const locationOutputDiv = document.createElement('div');
+      locationOutputDiv.id = 'location-output';
+      formElement.appendChild(locationOutputDiv);
+
+      formContainer.appendChild(formElement);
+    }
+        async function initForm() {
+          await getFormularioRequest().then( formularios => {   
+              formularios.forEach(form => {
+                createForm(form);
+              })
+          });
+        }
+      return {
+        initForm
+      }
+    }
+
+
+    const formularioFactory = FormularioFactory();
+    document.addEventListener('DOMContentLoaded', formularioFactory.initForm);
+
+    const browserFactory = BrowserFactory();
+    browserFactory.getGeolocation(
+        (position) => {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+
+          const location = LocationFactory();
+          location.getLocationRequest(latitude,longitude).then(data => {
+            location.exibeEmTelaLocalizacao(data);
+          });      
+          
+          const mapFactory = MapFactory();
+          mapFactory.initMap(latitude,longitude,15);     
+
+        }
+      ,(error) =>{
+            let errorMessage = '';
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage = 'User denied the request for Geolocation.';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage = 'Location information is unavailable.';
+                break;
+              case error.TIMEOUT:
+                errorMessage = 'The request to get user location timed out.';
+                break;
+              case error.UNKNOWN_ERROR:
+                errorMessage = 'An unknown error occurred.';
+                break;
+            }
+            document.getElementById('location-output').textContent = errorMessage;
+          }
+      );
+  
+  </script>
+</body>
+</html>
