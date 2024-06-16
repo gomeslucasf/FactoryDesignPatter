@@ -27,10 +27,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bluebird/3.7.2/bluebird.min.js"></script>
 
-  <script>
-    
-
-
+  <script> 
     function LocationFactory(){
 
       async function getLocationRequest(latitude, longitude) {
@@ -50,23 +47,25 @@
         }
       } 
       function exibeEmTelaLocalizacao(data){
-        const formContainer = document.getElementById('form-container');
-          const formElement = document.getElementsByTagName('form')[0];
-          const street = document.createElement('p');
-          street.id = 'location-output';
-          street.innerHTML = `</br> Endereço: ${data.display_name} </br> latitude: ${data.lat} </br> longitude: ${data.lon}`;
-          formElement.appendChild(street);
-          formContainer.appendChild(formElement);
+        const locationOutput = document.getElementById('location-output');
+        const street = document.createElement('p');
+        street.id = 'location-output-text';
+        street.innerHTML = `</br> Endereço: ${data.display_name}`;
+        locationOutput.appendChild(street);
       }
      
+      function init(latitude, longitude){
+        getLocationRequest(latitude,longitude).then(data => {
+            exibeEmTelaLocalizacao(data);
+          }); 
+      }
       return {
-        getLocationRequest,
-        exibeEmTelaLocalizacao
+          init
         }
     }
   
     function MapFactory(){
-      function initMap (latitude,longitude,zoom){
+      function init (latitude,longitude,zoom){
         const map = L.map('map').setView([latitude, longitude],zoom);
           // Adiciona camada de mapa do OpenStreetMap
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -79,7 +78,7 @@
             
       }
       
-      return {initMap}
+      return {init}
     }
 
     function BrowserFactory(){
@@ -106,35 +105,35 @@
         }
       }
         function createForm(form) {
-      const formContainer = document.getElementById('form-container');
-      const formElement = document.createElement('form');
-      formElement.className = 'mb-4';
+          const formContainer = document.getElementById('form-container');
+          const formElement = document.createElement('form');
+          formElement.className = 'mb-4';
 
-      const titleElement = document.createElement('h3');
-      titleElement.textContent = form.titulo;
-      formElement.appendChild(titleElement);
+          const titleElement = document.createElement('h3');
+          titleElement.textContent = form.titulo;
+          formElement.appendChild(titleElement);
 
-      const descriptionElement = document.createElement('p');
-      descriptionElement.textContent = form.descricao;
-      formElement.appendChild(descriptionElement);
+          const descriptionElement = document.createElement('p');
+          descriptionElement.textContent = form.descricao;
+          formElement.appendChild(descriptionElement);
 
-      const campos = JSON.parse(form.campos);
-      campos.forEach(campo => {
-        const componentWrapper = document.createElement('div');
-        componentWrapper.className = 'mb-3';
-        componentWrapper.innerHTML = campo.Componente.trim(); 
-        if (componentWrapper.firstChild instanceof Node) {
-          formElement.appendChild(componentWrapper.firstChild);
+          const campos = JSON.parse(form.campos);
+          campos.forEach(campo => {
+            const componentWrapper = document.createElement('div');
+            componentWrapper.className = 'mb-3';
+            componentWrapper.innerHTML = campo.Componente.trim(); 
+            if (componentWrapper.firstChild instanceof Node) {
+              formElement.appendChild(componentWrapper.firstChild);
+            }
+          });
+
+          const locationOutputDiv = document.createElement('div');
+          locationOutputDiv.id = 'location-output';
+          formElement.appendChild(locationOutputDiv);
+
+          formContainer.appendChild(formElement);
         }
-      });
-
-      const locationOutputDiv = document.createElement('div');
-      locationOutputDiv.id = 'location-output';
-      formElement.appendChild(locationOutputDiv);
-
-      formContainer.appendChild(formElement);
-    }
-        async function initForm() {
+        async function init() {
           await getFormularioRequest().then( formularios => {   
               formularios.forEach(form => {
                 createForm(form);
@@ -142,13 +141,13 @@
           });
         }
       return {
-        initForm
+        init
       }
     }
 
 
     const formularioFactory = FormularioFactory();
-    document.addEventListener('DOMContentLoaded', formularioFactory.initForm);
+    document.addEventListener('DOMContentLoaded', formularioFactory.init);
 
     const browserFactory = BrowserFactory();
     browserFactory.getGeolocation(
@@ -156,13 +155,18 @@
           const latitude = position.coords.latitude;
           const longitude = position.coords.longitude;
 
+          const locationOutput = document.getElementById('location-output');
+          const street = document.createElement('p');
+          street.id = 'location-output-latlon';
+          street.innerHTML += `</br> lat: ${latitude}`;
+          street.innerHTML += `</br> lon: ${longitude}`;
+          locationOutput.appendChild(street);
+
           const location = LocationFactory();
-          location.getLocationRequest(latitude,longitude).then(data => {
-            location.exibeEmTelaLocalizacao(data);
-          });      
+          location.init(latitude,longitude)   
           
           const mapFactory = MapFactory();
-          mapFactory.initMap(latitude,longitude,15);     
+          mapFactory.init(latitude,longitude,15);     
 
         }
       ,(error) =>{
